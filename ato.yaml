@@ -1,0 +1,23 @@
+requires-atopile: "0.8.1"
+
+paths:
+  src: ./
+  layout: ./layouts
+  footprints: ./footprints
+
+builds:
+  default:
+    entry: main.ato:App
+
+# This metadata is only required for publishing
+# Uncomment it and fill out the fields to publish your package
+# package:
+#   identifier: # fill me!/klone_pedal
+#   repository: # fill me!
+#   version: "0.1.0"  # recommended first version
+#   authors:
+#     - name: Nicholas Krstevski
+#       email: n.krstevski00@gmail.com
+#   summary: # fill me!
+#   license: MIT license
+#   homepage: # fill me!
