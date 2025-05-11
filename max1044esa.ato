@@ -1,0 +1,23 @@
+import ElectricPower
+
+component MAX1044ESA:
+    """XBLW_MAX1044ESAXBLW component"""
+    lcsc_id = "C22451410"
+    manufacturer = "XBLW"
+    mpn = "MAX1044ESA(XBLW)"
+    datasheet_url = "https://www.lcsc.com/datasheet/lcsc_datasheet_2406041454_XBLW-MAX1044ESA-XBLW_C22451410.pdf"
+    designator_prefix = "U"
+
+    # pins
+    signal BOOST ~ pin 1
+    signal CAPminus ~ pin 4
+    signal CAPplus ~ pin 2
+    signal GND ~ pin 3
+    signal LV ~ pin 6
+    signal OSC ~ pin 7
+    signal VOUT ~ pin 5
+    signal Vplus ~ pin 8
+
+    power = new ElectricPower
+    power.vcc ~ Vplus
+    power.gnd ~ GND

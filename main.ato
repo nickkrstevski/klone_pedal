@@ -1,4 +1,106 @@
-"""Brand new atopile project!"""
 
-module App:
-    pass
+
+"""Overdrive guitar pedal"""
+import ElectricPower
+import ElectricSignal
+import Capacitor
+import Diode
+import ResistorVoltageDivider
+from "max1044esa.ato" import MAX1044ESA
+from "tlv072.ato" import TL072CDT
+
+module Pedal:
+    # POWER DOMAINS
+    signal gnd
+    batt_power_9V = new ElectricPower
+    batt_power_9V.voltage = 7.2V to 9.6V
+    batt_power_9V.gnd ~ gnd
+    power_4V5 = new ElectricPower # Virtual ground
+    power_4V5.voltage = 4.5V +/- 10%
+    power_4V5.gnd ~ gnd
+    power_neg_9V = new ElectricPower
+    power_neg_9V.voltage = -9.6V to -7.2V
+    power_neg_9V.gnd ~ gnd
+    power_16V = new ElectricPower
+    power_16V.voltage = 16.2V
+    power_16V.gnd ~ gnd
+
+    audio_in = new ElectricSignal
+
+    batt_tvs_diode = new Diode
+    batt_tvs_diode.mpn = "BZT52C12" # This is 500mW, look for 1W
+    batt_tvs_diode.cathode ~ batt_power_9V.vcc
+    batt_tvs_diode.anode ~ gnd
+
+    # POWER SUPPLY
+    max1044 = new MAX1044ESA
+    max1044.power ~ batt_power_9V
+    max1044.BOOST ~ max1044.power.vcc
+    
+    max1044.VOUT ~ power_neg_9V.vcc
+
+    # bypass caps
+    batt_bypass_cap = new Capacitor
+    batt_bypass_cap.value = 47uF +/- 20%
+    batt_bypass_cap.voltage = "25V"
+    batt_bypass_cap.power ~ batt_power_9V
+    neg_bypass_cap = new Capacitor
+    neg_bypass_cap.value = 47uF +/- 20%
+    neg_bypass_cap.voltage = "25V"
+    neg_bypass_cap.power ~ power_4V5
+    power_neg_9V_bypass_cap = new Capacitor
+    power_neg_9V_bypass_cap.value = 1uF +/- 20%
+    power_neg_9V_bypass_cap.voltage = "25V"
+    power_neg_9V_bypass_cap.power ~ power_neg_9V
+    power_16V_bypass_cap = new Capacitor
+    power_16V_bypass_cap.value = 1uF +/- 20%
+    power_16V_bypass_cap.voltage = "25V"
+    power_16V_bypass_cap.power ~ power_16V
+
+    rectifier1 = new Diode
+    rectifier1.mpn = "C727088"
+    rectifier1.anode ~ max1044.BOOST
+    rectifier2 = new Diode
+    rectifier2.mpn = "C727088"
+    rectifier2.anode ~ rectifier1.cathode
+    rectifier2.cathode ~ power_16V.vcc
+
+    boost_cap1 = new Capacitor
+    boost_cap1.value = 1uF +/- 20%
+    boost_cap1.voltage = "25V"
+    boost_cap1.p1 ~ max1044.CAPminus
+    boost_cap1.p2 ~ max1044.CAPplus
+    boost_cap2 = new Capacitor
+    boost_cap2.value = 1uF +/- 20%
+    boost_cap2.voltage = "25V"
+    boost_cap2.p1 ~ max1044.CAPplus
+    boost_cap2.p2 ~ rectifier2.anode
+
+    res_divider = new ResistorVoltageDivider
+    res_divider.power ~ batt_power_9V
+    res_divider.ratio = 0.5
+    res_divider.r_total = 54000 ohm
+    res_divider.output ~ power_4V5.vcc
+
+    # INPUT STAGE
+    input_opamp = new TL072CDT
+    input_opamp.opamp1.non_inverting_input ~ opamp1.output
+    input_r = new Resistor
+    input_r.value = 10kohm +/- 1%
+    # input_r.footprint = "R01005"
+    ac_input_cap = new Capacitor
+    ac_input_cap.value = 0.1uF +/- 20%
+    ac_input_cap.voltage = "6V"
+    # ac_input_cap.footprint = "C01005"
+    input_dc_bias_r = new Resistor
+    input_dc_bias_r.value = 1000000 ohm +/- 10%
+    # input_dc_bias_r.footprint = "R01005"
+    audio_in ~ input_r.p1 # USE CONNECT THRU
+    input_r.p2 ~ ac_input_cap.p1
+    ac_input_cap.p2 ~ opamp1.non_inverting_input
+    opamp1.non_inverting_input ~ power_4V5.vcc
+
+    # GAIN STAGE
+    # SUMMING OPAMP
+    # TONE CONTROL
+    # OUTPUT STAGE

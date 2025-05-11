@@ -7,7 +7,7 @@ paths:
 
 builds:
   default:
-    entry: main.ato:App
+    entry: main.ato:Pedal
 
 # This metadata is only required for publishing
 # Uncomment it and fill out the fields to publish your package

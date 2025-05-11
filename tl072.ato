@@ -1,0 +1,34 @@
+import ElectricPower
+import OpAmp
+
+component TL072CDT:
+    """STMicroelectronics_TL072CDT component"""
+    lcsc_id = "C6961"
+    manufacturer = "STMicroelectronics"
+    mpn = "TL072CDT"
+    datasheet_url = "https://www.lcsc.com/datasheet/lcsc_datasheet_1809051915_STMicroelectronics-TL072CDT_C6961.pdf"
+    designator_prefix = "U"
+
+    # pins
+    signal OUT1 ~ pin 1
+    signal P1INminus ~ pin 2
+    signal P1INplus ~ pin 3
+    signal P2INminus ~ pin 6
+    signal P2INplus ~ pin 5
+    signal P2OUT ~ pin 7
+    signal VCCminus ~ pin 4
+    signal VCCplus ~ pin 8
+
+    opamp1 = new OpAmp
+    opamp1.power.vcc ~ VCCplus
+    opamp1.power.gnd ~ VCCminus
+    opamp1.inverting_input ~ P1INminus
+    opamp1.non_inverting_input ~ P1INplus
+    opamp1.output ~ OUT1
+    
+    opamp2 = new OpAmp
+    opamp2.power.vcc ~ VCCplus
+    opamp2.power.gnd ~ VCCminus
+    opamp2.inverting_input ~ P2INminus
+    opamp2.non_inverting_input ~ P2INplus
+    opamp2.output ~ OUT2
