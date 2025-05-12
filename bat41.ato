@@ -1,0 +1,13 @@
+import Diode
+
+component BAT41 from Diode:
+    """STMicroelectronics_BAT41ZFILM component"""
+    lcsc_id = "C222251"
+    manufacturer = "STMicroelectronics"
+    mpn = "BAT41ZFILM"
+    datasheet_url = "https://www.lcsc.com/datasheet/lcsc_datasheet_1810170434_STMicroelectronics-BAT41ZFILM_C222251.pdf"
+    designator_prefix = "D"
+
+    # pins
+    pin 2 ~ anode
+    pin 1 ~ cathode

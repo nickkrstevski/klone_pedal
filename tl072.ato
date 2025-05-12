@@ -1,3 +1,6 @@
+#pragma experiment("BRIDGE_CONNECT")
+#pragma experiment("FOR_LOOP")
+
 import ElectricPower
 import OpAmp
 
@@ -19,16 +22,16 @@ component TL072CDT:
     signal VCCminus ~ pin 4
     signal VCCplus ~ pin 8
 
-    opamp1 = new OpAmp
-    opamp1.power.vcc ~ VCCplus
-    opamp1.power.gnd ~ VCCminus
-    opamp1.inverting_input ~ P1INminus
-    opamp1.non_inverting_input ~ P1INplus
-    opamp1.output ~ OUT1
+    opamps = new OpAmp[2]
+
+    for opamp in opamps:
+        opamp.power.vcc ~ VCCplus
+        opamp.power.gnd ~ VCCminus
+
+    opamps[0].inverting_input ~ P1INminus
+    opamps[0].non_inverting_input ~ P1INplus
+    opamps[0].output ~ OUT1
     
-    opamp2 = new OpAmp
-    opamp2.power.vcc ~ VCCplus
-    opamp2.power.gnd ~ VCCminus
-    opamp2.inverting_input ~ P2INminus
-    opamp2.non_inverting_input ~ P2INplus
-    opamp2.output ~ OUT2
+    opamps[1].inverting_input ~ P2INminus
+    opamps[1].non_inverting_input ~ P2INplus
+    opamps[1].output ~ P2OUT

@@ -1,13 +1,19 @@
-
+#pragma experiment("BRIDGE_CONNECT")
+#pragma experiment("FOR_LOOP")
 
 """Overdrive guitar pedal"""
 import ElectricPower
 import ElectricSignal
+import Resistor
 import Capacitor
 import Diode
 import ResistorVoltageDivider
+import FilterElectricalRC
+import OpAmp
+import Potentiometer
 from "max1044esa.ato" import MAX1044ESA
-from "tlv072.ato" import TL072CDT
+from "tl072.ato" import TL072CDT
+from "bat41.ato" import BAT41
 
 module Pedal:
     # POWER DOMAINS
@@ -25,7 +31,10 @@ module Pedal:
     power_16V.voltage = 16.2V
     power_16V.gnd ~ gnd
 
-    audio_in = new ElectricSignal
+    input_audio_jack = new QuarterInchAudioJack
+    input_audio_jack.gnd ~ gnd
+    output_audio_jack = new QuarterInchAudioJack
+    output_audio_jack.gnd ~ gnd
 
     batt_tvs_diode = new Diode
     batt_tvs_diode.mpn = "BZT52C12" # This is 500mW, look for 1W
@@ -36,7 +45,6 @@ module Pedal:
     max1044 = new MAX1044ESA
     max1044.power ~ batt_power_9V
     max1044.BOOST ~ max1044.power.vcc
-    
     max1044.VOUT ~ power_neg_9V.vcc
 
     # bypass caps
@@ -82,9 +90,12 @@ module Pedal:
     res_divider.r_total = 54000 ohm
     res_divider.output ~ power_4V5.vcc
 
+    tone_opamps = new TL072CDT
     # INPUT STAGE
-    input_opamp = new TL072CDT
-    input_opamp.opamp1.non_inverting_input ~ opamp1.output
+    gain_opamps = new TL072CDT
+    for opamp in gain_opamps.opamps:
+        opamp.power ~ batt_power_9V
+    gain_opamps.opamps[0].non_inverting_input ~ gain_opamps.opamps[0].output
     input_r = new Resistor
     input_r.value = 10kohm +/- 1%
     # input_r.footprint = "R01005"
@@ -95,12 +106,115 @@ module Pedal:
     input_dc_bias_r = new Resistor
     input_dc_bias_r.value = 1000000 ohm +/- 10%
     # input_dc_bias_r.footprint = "R01005"
-    audio_in ~ input_r.p1 # USE CONNECT THRU
-    input_r.p2 ~ ac_input_cap.p1
-    ac_input_cap.p2 ~ opamp1.non_inverting_input
-    opamp1.non_inverting_input ~ power_4V5.vcc
+    input_audio_jack.input ~> input_r ~> ac_input_cap.p1
+    ac_input_cap.p2 ~ gain_opamps.opamps[0].non_inverting_input
+    gain_opamps.opamps[0].non_inverting_input ~ power_4V5.vcc
 
     # GAIN STAGE
+    # big gain stage
+    gain_stage_ac_cap_c3 = new Capacitor
+    gain_stage_ac_cap_c3.value = 0.1uF +/- 20%
+    gain_stage_ac_cap_c3.voltage = "25V"
+    gs_r6 = new Resistor
+    gs_r6.value = 10 kohm +/- 1%
+    gs_c5 = new Capacitor
+    gs_c5.value = 68 nF +/- 10%
+    gs_c5.voltage = "16V"
+    rv_gain_a_pot = new Potentiometer
+    rv_gain_a_pot.r_total = 100 kohm +/- 10%
+    gs_r10 = new Resistor
+    gs_r10.value = 2 kohm +/- 1%
+    gs_r11 = new Resistor
+    gs_r11.value = 15 kohm +/- 1%
+    gs_r12 = new Resistor
+    gs_r12.value = 422 kohm +/- 1%
+    gs_r13 = new Resistor
+    gs_r13.value = 1 kohm +/- 1%
+    gs_c7 = new Capacitor
+    gs_c7.value = 82 nF +/- 10%
+    gs_c7.voltage = "16V"
+    gs_c8 = new Capacitor
+    gs_c8.value = 390 pF +/- 10%
+    gs_c8.voltage = "16V"
+    gs_c9 = new Capacitor
+    gs_c9.value = 1 uF +/- 10%
+    gs_c9.voltage = "16V"
+    gs_clipping_d2 = new BAT41
+    gs_clipping_d3 = new BAT41
+    gs_c10 = new Capacitor
+    gs_c10.value = 1 uF +/- 10%
+    gs_c10.voltage = "16V"
+    gs_r16 = new Resistor
+    gs_r16.value = 47 kohm +/- 1%
+    
+    gain_stage_ac_cap_c3.p1 ~ gain_opamps.opamps[0].output
+    gain_stage_ac_cap_c3.p2 ~> gs_r6 ~> gain_opamps.opamps[1].non_inverting_input
+    gain_stage_ac_cap_c3.p2 ~> gs_c5 ~> gain_opamps.opamps[1].non_inverting_input
+    gain_opamps.opamps[1].non_inverting_input ~ rv_gain_a_pot.resistors_ifs[0]
+    rv_gain_a_pot.wiper ~ power_4V5.vcc
+    rv_gain_a_pot.resistors_ifs[1] ~> gs_r10 ~> gs_r11 ~> gain_opamps.opamps[1].inverting_input
+    # gs_r10 ~ gs_c7 parallel connection would be cool
+    rv_gain_a_pot.resistors_ifs[1] ~> gs_r10 ~> gs_c7 ~> gain_opamps.opamps[1].inverting_input
+    gain_opamps.opamps[1].inverting_input ~> gs_r12 ~> gain_opamps.opamps[1].output
+    gain_opamps.opamps[1].inverting_input ~> gs_c8 ~> gain_opamps.opamps[1].output
+    gain_opamps.opamps[1].output ~> gs_c9 ~> gs_r13 ~> gs_c10 ~> gs_r16.p1
+    gs_r16.p2 ~ tone_opamps.opamps[0].inverting_input
+    gs_r13 ~> gs_clipping_d2 ~> gnd
+    gnd ~> gs_clipping_d3 ~> gs_r13
+
+    # feedforward path 1, adding low freq to output
+    ff1_low_pass = new FilterElectricalRC
+    ff1_low_pass.R = 1.5 kohm +/- 1%
+    ff1_low_pass.C = 1 uF +/- 10%
+    ff1_summing_res = new Resistor
+    ff1_summing_res.value = 15 kohm +/- 1%
+    gain_stage_ac_cap_c3.p2 ~ ff1_low_pass.in_
+    ff1_low_pass.out.reference.gnd ~ gnd
+    ff1_low_pass.out.line ~> ff1_summing_res ~> tone_opamps.opamps[0].inverting_input
+
+    # feedforward path 2, adding 
+    ff2_r5 = new Resistor
+    ff2_r5.value = 5.1 kohm +/- 1%
+    ff2_c4 = new Capacitor
+    ff2_c4.value = 68nF +/- 10%
+    ff2_c4.voltage = "16V"
+    ff2_r8 = new Resistor
+    ff2_r8.value = 1.5 kohm +/- 1%
+    ff2_c6 = new Capacitor
+    ff2_c6.value = 390nF +/- 10%
+    ff2_c6.voltage = "16V"
+    ff2_r9 = new Resistor
+    ff2_r9.value = 1 kohm +/- 1%
+    rv_gain_b_pot = new Potentiometer
+    rv_gain_b_pot.r_total = 100 kohm +/- 10%
+    ff2_r15 = new Resistor
+    ff2_r15.value = 22 kohm +/- 1%
+    ff2_c11 = new Capacitor
+    ff2_c11.value = 2.2nF +/- 20%
+    ff2_c11.voltage = "16V"
+    ff2_r17 = new Resistor
+    ff2_r17.value = 27 kohm +/- 1%
+    ff2_r18 = new Resistor
+    ff2_r18.value = 12 kohm +/- 1%
+    ff2_c12 = new Capacitor
+    ff2_c12.value = 27nF +/- 10%
+    ff2_c12.voltage = "16V"
+
+    input_audio_jack.input ~ ff2_r5.p1; ff2_r5.p1 ~ ff2_c4.p1
+    ff2_c4.p2 ~ ff2_r5.p2; ff2_r5.p2 ~ ff2_r8.p1; ff2_r8.p1 ~ ff2_c6.p1; ff2_c6.p1 ~ rv_gain_b_pot.resistors_ifs[0]
+    ff2_r8.p2 ~ power_4V5.vcc; ff2_c6 ~> ff2_r9 ~> power_4V5.vcc; rv_gain_b_pot.resistors_ifs[1] ~ power_4V5.vcc
+    rv_gain_b_pot.wiper ~> ff2_r17 ~> tone_opamps.opamps[0].inverting_input
+    rv_gain_b_pot.wiper ~> ff2_r18 ~> ff2_c12 ~> tone_opamps.opamps[0].inverting_input
+    rv_gain_b_pot.wiper ~> ff2_r15 ~> ff2_c11 ~> gs_r16.p1
+
     # SUMMING OPAMP
+    
+    # tone_opamps.opamps[0]
+
     # TONE CONTROL
     # OUTPUT STAGE
+    # BYPASS MODE
+
+module QuarterInchAudioJack:
+    signal input ~ pin INPUT
+    signal gnd ~ pin GND
