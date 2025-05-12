@@ -106,7 +106,7 @@ module Pedal:
     input_dc_bias_r = new Resistor
     input_dc_bias_r.value = 1000000 ohm +/- 10%
     # input_dc_bias_r.footprint = "R01005"
-    input_audio_jack.input ~> input_r ~> ac_input_cap.p1
+    input_audio_jack.line ~> input_r ~> ac_input_cap.p1
     ac_input_cap.p2 ~ gain_opamps.opamps[0].non_inverting_input
     gain_opamps.opamps[0].non_inverting_input ~ power_4V5.vcc
 
@@ -200,7 +200,7 @@ module Pedal:
     ff2_c12.value = 27nF +/- 10%
     ff2_c12.voltage = "16V"
 
-    input_audio_jack.input ~ ff2_r5.p1; ff2_r5.p1 ~ ff2_c4.p1
+    input_audio_jack.line ~ ff2_r5.p1; ff2_r5.p1 ~ ff2_c4.p1
     ff2_c4.p2 ~ ff2_r5.p2; ff2_r5.p2 ~ ff2_r8.p1; ff2_r8.p1 ~ ff2_c6.p1; ff2_c6.p1 ~ rv_gain_b_pot.resistors_ifs[0]
     ff2_r8.p2 ~ power_4V5.vcc; ff2_c6 ~> ff2_r9 ~> power_4V5.vcc; rv_gain_b_pot.resistors_ifs[1] ~ power_4V5.vcc
     rv_gain_b_pot.wiper ~> ff2_r17 ~> tone_opamps.opamps[0].inverting_input
@@ -229,6 +229,7 @@ module Pedal:
     tone_r24 = new Resistor
     tone_r24.value = 100 kohm +/- 1%
     rv_tone_pot = new Potentiometer
+    rv_tone_pot.r_total = 10 kohm +/- 10%
     tone_c14 = new Capacitor
     tone_c14.value = 3.9 nF +/- 10%
     tone_c14.voltage = "50V"
@@ -241,10 +242,42 @@ module Pedal:
     rv_tone_pot.resistors_ifs[0] ~> tone_r23 ~> tone_opamps.opamps[1].output
     rv_tone_pot.wiper ~> tone_c14 ~> tone_opamps.opamps[1].inverting_input
     rv_tone_pot.wiper ~> tone_c14 ~> tone_r24 ~> tone_opamps.opamps[1].output
+
+    # BYPASS MODE
+    bypass_c2 = new Capacitor
+    bypass_c2.value = 4.7 uF +/- 10%
+    bypass_c2.voltage = "16V"
+    bypass_r3 = new Resistor
+    bypass_r3.value = 100 kohm +/- 1%
+    bypass_r4 = new Resistor
+    bypass_r4.value = 560 ohm +/- 1%
+
+    gain_opamps.opamps[0].output ~> bypass_c2 ~> bypass_r4.p1
+    bypass_r4.p1 ~> bypass_r3 ~> gnd
     
     # OUTPUT STAGE
-    # BYPASS MODE
+    out_c15 = new Capacitor
+    out_c15.value = 4.7 uF +/- 10%
+    out_c15.voltage = "50V"
+    out_r25 = new Resistor
+    out_r25.value = 560 ohm +/- 1%
+    rv_level_pot = new Potentiometer
+    rv_level_pot.r_total = 10 kohm +/- 10%
+    out_r28 = new Resistor
+    out_r28.value = 100 kohm +/- 1%
+    pop_elim = new ResistorVoltageDivider
+    pop_elim.ratio = 0.5
+    pop_elim.r_total = 136 kohm +/- 5%
+
+    tone_opamps.opamps[1].output ~> out_c15 ~> out_r25 ~> rv_level_pot.resistors_ifs[0]
+    rv_level_pot.resistors_ifs[1] ~ gnd
+    output_audio_jack.line ~> out_r28 ~> gnd
+    output_audio_jack.line ~ pop_elim.output
+    pop_elim.power.vcc ~ bypass_r4.p2
+    pop_elim.power.gnd ~ rv_level_pot.wiper
+    # TODO: ADD SWITCH
+
 
 module QuarterInchAudioJack:
-    signal input ~ pin INPUT
+    signal line ~ pin INPUT
     signal gnd ~ pin GND
