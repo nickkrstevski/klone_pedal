@@ -159,8 +159,8 @@ module Pedal:
     gain_opamps.opamps[1].inverting_input ~> gs_c8 ~> gain_opamps.opamps[1].output
     gain_opamps.opamps[1].output ~> gs_c9 ~> gs_r13 ~> gs_c10 ~> gs_r16.p1
     gs_r16.p2 ~ tone_opamps.opamps[0].inverting_input
-    gs_r13 ~> gs_clipping_d2 ~> gnd
-    gnd ~> gs_clipping_d3 ~> gs_r13
+    gs_r13.p2 ~> gs_clipping_d2 ~> gnd
+    gnd ~> gs_clipping_d3 ~> gs_r13.p2
 
     # feedforward path 1, adding low freq to output
     ff1_low_pass = new FilterElectricalRC
@@ -208,6 +208,16 @@ module Pedal:
     rv_gain_b_pot.wiper ~> ff2_r15 ~> ff2_c11 ~> gs_r16.p1
 
     # SUMMING OPAMP
+    sum_r20 = new Resistor
+    sum_r20.value = 392 kohm +/- 1%
+    sum_c13 = new Capacitor
+    sum_c13.value = 820 pF +/- 10%
+    sum_c13.voltage = "50V"
+    tone_opamps.opamps[0].power.vcc ~ power_16V.vcc
+    tone_opamps.opamps[0].power.gnd ~ power_neg_9V.vcc
+    tone_opamps.opamps[0].non_inverting_input ~ power_4V5.vcc
+    tone_opamps.opamps[0].inverting_input ~> sum_r20 ~> tone_opamps.opamps[0].output
+    tone_opamps.opamps[0].inverting_input ~> sum_c13 ~> tone_opamps.opamps[0].output
     
     # tone_opamps.opamps[0]
 
