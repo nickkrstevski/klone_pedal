@@ -15,6 +15,8 @@ from "max1044esa.ato" import MAX1044ESA
 from "tl072.ato" import TL072CDT
 from "bat41.ato" import BAT41
 
+from "bridgeable_module.py" import BridgeableModule
+
 module Pedal:
     # POWER DOMAINS
     signal gnd
@@ -49,38 +51,38 @@ module Pedal:
 
     # bypass caps
     batt_bypass_cap = new Capacitor
-    batt_bypass_cap.value = 47uF +/- 20%
-    batt_bypass_cap.voltage = "25V"
+    batt_bypass_cap.capacitance = 47uF +/- 20%
+    batt_bypass_cap.max_voltage = 25V
     batt_bypass_cap.power ~ batt_power_9V
     neg_bypass_cap = new Capacitor
-    neg_bypass_cap.value = 47uF +/- 20%
-    neg_bypass_cap.voltage = "25V"
+    neg_bypass_cap.capacitance = 47uF +/- 20%
+    neg_bypass_cap.max_voltage = 25V
     neg_bypass_cap.power ~ power_4V5
     power_neg_9V_bypass_cap = new Capacitor
-    power_neg_9V_bypass_cap.value = 1uF +/- 20%
-    power_neg_9V_bypass_cap.voltage = "25V"
+    power_neg_9V_bypass_cap.capacitance = 1uF +/- 20%
+    power_neg_9V_bypass_cap.max_voltage = 25V
     power_neg_9V_bypass_cap.power ~ power_neg_9V
     power_16V_bypass_cap = new Capacitor
-    power_16V_bypass_cap.value = 1uF +/- 20%
-    power_16V_bypass_cap.voltage = "25V"
+    power_16V_bypass_cap.capacitance = 1uF +/- 20%
+    power_16V_bypass_cap.max_voltage = 25V
     power_16V_bypass_cap.power ~ power_16V
 
     rectifier1 = new Diode
-    rectifier1.mpn = "C727088"
+    rectifier1.lcsc_id = "C727088"
     rectifier1.anode ~ max1044.BOOST
     rectifier2 = new Diode
-    rectifier2.mpn = "C727088"
+    rectifier2.lcsc_id = "C727088"
     rectifier2.anode ~ rectifier1.cathode
     rectifier2.cathode ~ power_16V.vcc
 
     boost_cap1 = new Capacitor
-    boost_cap1.value = 1uF +/- 20%
-    boost_cap1.voltage = "25V"
+    boost_cap1.capacitance = 1uF +/- 20%
+    boost_cap1.max_voltage = 25V
     boost_cap1.p1 ~ max1044.CAPminus
     boost_cap1.p2 ~ max1044.CAPplus
     boost_cap2 = new Capacitor
-    boost_cap2.value = 1uF +/- 20%
-    boost_cap2.voltage = "25V"
+    boost_cap2.capacitance = 1uF +/- 20%
+    boost_cap2.max_voltage = 25V
     boost_cap2.p1 ~ max1044.CAPplus
     boost_cap2.p2 ~ rectifier2.anode
 
@@ -88,20 +90,21 @@ module Pedal:
     res_divider.power ~ batt_power_9V
     res_divider.ratio = 0.5
     res_divider.r_total = 54000 ohm
-    res_divider.output ~ power_4V5.vcc
+    res_divider.output.line ~ power_4V5.vcc
 
     tone_opamps = new TL072CDT
     # INPUT STAGE
     gain_opamps = new TL072CDT
-    for opamp in gain_opamps.opamps:
-        opamp.power ~ batt_power_9V
-    gain_opamps.opamps[0].non_inverting_input ~ gain_opamps.opamps[0].output
+    # input_buffer_opamp = gain_opamps.opamps[0]
+    input_buffer_opamp = new OpAmp
+    input_buffer_opamp.non_inverting_input ~ input_buffer_opamp.output
+    # gain_opamps.opamps[0].non_inverting_input ~ gain_opamps.opamps[0].output
     input_r = new Resistor
     input_r.value = 10kohm +/- 1%
     # input_r.footprint = "R01005"
     ac_input_cap = new Capacitor
     ac_input_cap.value = 0.1uF +/- 20%
-    ac_input_cap.voltage = "6V"
+    ac_input_cap.max_voltage = 6V
     # ac_input_cap.footprint = "C01005"
     input_dc_bias_r = new Resistor
     input_dc_bias_r.value = 1000000 ohm +/- 10%
@@ -112,11 +115,11 @@ module Pedal:
 
     # GAIN STAGE
     # big gain stage
+
     gain_stage_ac_cap_c3 = new Capacitor
     gain_stage_ac_cap_c3.value = 0.1uF +/- 20%
-    gain_stage_ac_cap_c3.voltage = "25V"
-    gs_r6 = new Resistor
-    gs_r6.value = 10 kohm +/- 1%
+    gain_stage_ac_cap_c3.voltage = 25V
+    gs_r6 = new Resistor # {.resistance = 10kohm +/- 1%}
     gs_c5 = new Capacitor
     gs_c5.value = 68 nF +/- 10%
     gs_c5.voltage = "16V"
@@ -160,7 +163,8 @@ module Pedal:
     gain_opamps.opamps[1].output ~> gs_c9 ~> gs_r13 ~> gs_c10 ~> gs_r16.p1
     gs_r16.p2 ~ tone_opamps.opamps[0].inverting_input
     gs_r13.p2 ~> gs_clipping_d2 ~> gnd
-    gnd ~> gs_clipping_d3 ~> gs_r13.p2
+    gs_r13.p2 <~ gs_clipping_d3 <~ gnd
+
 
     # feedforward path 1, adding low freq to output
     ff1_low_pass = new FilterElectricalRC
@@ -281,3 +285,171 @@ module Pedal:
 module QuarterInchAudioJack:
     signal line ~ pin INPUT
     signal gnd ~ pin GND
+
+module PedalRefactor:
+    input_connector = new QuarterInchAudioJack
+    input_stage = new InputStage
+    output_connector = new QuarterInchAudioJack
+
+    input_connector ~> input_stage ~> output_connector
+
+module InputStage from BridgeableModule:
+    # External Interfaces
+    input = new ElectricSignal
+    output = new ElectricSignal
+    power_9v = new ElectricPower
+    power_4v5 = new ElectricPower
+
+    # bridge = new Bridge<input=input_connector.line, output=output_connector.line>
+
+    # trait can_bridge{.input = input, .output = output}
+
+    # Components
+    input_buffer_opamp = new OpAmp
+    input_r = new Resistor
+    ac_input_cap = new Capacitor
+    input_dc_bias_r = new Resistor# quick init{.resistance = 10kohm +/- 1%, .package = "R01005"}
+
+    # Power
+    power_9v ~ input_buffer_opamp.power
+
+    # Connections
+    input.line ~> input_r ~> ac_input_cap ~> input_buffer_opamp.non_inverting_input
+    input_buffer_opamp.non_inverting_input ~> input_dc_bias_r ~> power_4v5.vcc
+    input_buffer_opamp.inverting_input ~ input_buffer_opamp.output
+
+    # Component Values
+    input_r.value = 10kohm +/- 1%
+    input_r.package = "R0402"
+    ac_input_cap.value = 100nF +/- 20% # 0.1uF
+    ac_input_cap.max_voltage = 6V
+    ac_input_cap.package = "C0402"
+    input_dc_bias_r.value = 1Mohm +/- 10%
+    input_dc_bias_r.package = "R0402"
+
+module OpampGainStage from BridgeableModule:
+    power_9v = new ElectricPower
+    power_4v5 = new ElectricPower
+
+
+    # Primary gain stage
+    # Component definitions
+    gain_stage_ac_cap_c3 = new Capacitor
+    gs_r6 = new Resistor
+    gs_c5 = new Capacitor
+    rv_gain_a_pot = new Potentiometer
+    gs_r10 = new Resistor
+    gs_r11 = new Resistor
+    gs_r12 = new Resistor
+    gs_r13 = new Resistor
+    gs_c7 = new Capacitor
+    gs_c8 = new Capacitor
+    gs_c9 = new Capacitor
+    gs_clipping_d2 = new Diode # BAT41
+    gs_clipping_d3 = new Diode # BAT41
+    gs_c10 = new Capacitor
+    gs_r16 = new Resistor
+
+    # Component values
+    gain_stage_ac_cap_c3.capacitance = 0.1uF +/- 20%
+    gain_stage_ac_cap_c3.max_voltage = 25V
+    gs_r6.resistance = 10kohm +/- 1%
+    gs_c5.capacitance = 68 nF +/- 10%
+    gs_c5.max_voltage = 16V
+    rv_gain_a_pot.r_total = 100 kohm +/- 10%
+    gs_r10.resistance = 2kohm +/- 1%
+    gs_r11.resistance = 15kohm +/- 1%
+    gs_r12.resistance = 422 kohm +/- 1%
+    gs_r13.resistance = 1kohm +/- 1%
+    gs_c7.capacitance = 82nF +/- 10%
+    gs_c7.max_voltage = 16V
+    gs_c8.capacitance = 390 pF +/- 10%
+    gs_c8.max_voltage = 16V
+    gs_c9.capacitance = 1uF +/- 10%
+    gs_c9.max_voltage = 16V
+    gs_c10.capacitance = 1uF +/- 10%
+    gs_c10.max_voltage = 16V
+    gs_r16.resistance = 47 kohm +/- 1%
+
+
+    # Feedforward path 1
+    # Components
+    ff1_low_pass = new FilterElectricalRC
+    ff1_summing_res = new Resistor
+
+    # Component values
+    ff1_low_pass.resistor.resistance = 1.5 kohm +/- 1%
+    ff1_low_pass.capacitor.capacitance = 1 uF +/- 10%
+    ff1_summing_res.resistance = 15 kohm +/- 1%
+
+    # Connections
+    input ~> ff1_low_pass ~> ff1_summing_res ~> output
+
+    # Feedforward path 2
+    # Components
+    ff2_r5 = new Resistor
+    ff2_c4 = new Capacitor
+    ff2_r8 = new Resistor
+    ff2_c6 = new Capacitor
+    ff2_r9 = new Resistor
+    rv_gain_b_pot = new Potentiometer
+    ff2_r15 = new Resistor
+    ff2_c11 = new Capacitor
+    ff2_r17 = new Resistor
+    ff2_r18 = new Resistor
+    ff2_c12 = new Capacitor
+
+    # Component values
+    ff2_r5.resistance = 5.1kohm +/- 1%
+    ff2_c4.capacitance = 68nF +/- 10%
+    ff2_c4.max_voltage = 16V
+    ff2_r8.resistance = 1.5kohm +/- 1%
+    ff2_c6.capacitance = 390nF +/- 10%
+    ff2_c6.max_voltage = 16V
+    ff2_r9.resistance = 1kohm +/- 1%
+    rv_gain_b_pot.r_total = 100kohm +/- 10%
+    ff2_r15.resistance = 22kohm +/- 1%
+    ff2_c11.capacitance = 2.2nF +/- 20%
+    ff2_c11.max_voltage = 16V
+    ff2_r17.resistance = 27kohm +/- 1%
+    ff2_r18.resistance = 12kohm +/- 1%
+    ff2_c12.capacitance = 27nF +/- 10%
+    ff2_c12.max_voltage = 16V
+
+    # Connections
+    r5 = new Resistor{}
+    c5 = new Capacitor{}
+    input ~> [r5 || [c5~>r6] ] ~> output
+
+    input ~> r5 ~> output
+    r5 || [c5~>r6] 
+
+    alias c5_r6 to c5 ~> r6
+    input ~> [r5 || c5_r6] ~> output
+
+    # alias input_buffer to gain_opamps.opamps[0]
+    alias input_buffer to gain_opamps.opamps[0]
+
+
+    r5_c4 = new SeriesResCap
+    r5_c4.resistor.resistance = ff2_r5.resistance
+    r5_c4.capacitor.capacitance = ff2_c4.capacitance
+    r5_c4.capacitor.max_voltage = ff2_c4.max_voltage
+
+
+
+    alias c6_r9 to c6 ~> r9
+
+    input ~> r8 || c6_r9 || pot ~> power_4v5.vcc
+
+    input <~ diode1 <~ output
+    input ~> diode2 ~> output
+
+
+module SeriesResCap from BridgeableModule:
+    capacitor = new Capacitor
+    resistor = new Resistor
+
+    # Connections
+    input ~> resistor ~> output
+    input ~> capacitor ~> output
