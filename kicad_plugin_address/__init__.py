@@ -1,4 +1,25 @@
 #!/usr/bin/env python3
+'''
+This plugin is used to add the atopile_address field values as text on the comments layer.
+
+To use the plugin, add the following code to a file in kicad/9.0/scripting/plugins called "atopile_address.py"
+
+########################################################
+plugin_path = r"<PATH_TO_THIS_DIRECTORY>"
+import sys
+import importlib
+
+if plugin_path not in sys.path:
+    sys.path.append(plugin_path)
+
+# if kicad_plugin is already in sys.modules, reload it
+for module in sys.modules:
+    if "kicad_plugin_address" in module:
+        importlib.reload(sys.modules[module])
+
+import kicad_plugin_addressx
+########################################################
+'''
 
 import pcbnew
 import wx
@@ -34,7 +55,7 @@ class AtopileAddressPlugin(pcbnew.ActionPlugin):
         
         # Access the User.Comments layer in KiCad 9
         # The comments layer is typically accessed through pcbnew.Dwgs_User
-        comments_layer = pcbnew.Dwgs_User
+        comments_layer = pcbnew.Cmts_User
         
         # First, remove all existing text on the comments layer
         self._remove_text_on_comments_layer(board, comments_layer)

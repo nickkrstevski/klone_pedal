@@ -1,9 +1,11 @@
 #pragma experiment("BRIDGE_CONNECT")
 #pragma experiment("FOR_LOOP")
+#pragma experiment("MODULE_TEMPLATING")
 
 """Overdrive guitar pedal"""
 import ElectricPower
 import ElectricSignal
+import Electrical
 import Resistor
 import Capacitor
 import Diode
@@ -14,269 +16,357 @@ import Potentiometer
 from "max1044esa.ato" import MAX1044ESA
 from "tl072.ato" import TL072CDT
 from "bat41.ato" import BAT41
+from "tap.py" import Tap
 
 module Pedal:
     # POWER DOMAINS
     signal gnd
     batt_power_9V = new ElectricPower
     batt_power_9V.voltage = 7.2V to 9.6V
-    batt_power_9V.gnd ~ gnd
     power_4V5 = new ElectricPower # Virtual ground
     power_4V5.voltage = 4.5V +/- 10%
-    power_4V5.gnd ~ gnd
     power_neg_9V = new ElectricPower
     power_neg_9V.voltage = -9.6V to -7.2V
-    power_neg_9V.gnd ~ gnd
     power_16V = new ElectricPower
     power_16V.voltage = 16.2V
-    power_16V.gnd ~ gnd
 
     input_audio_jack = new QuarterInchAudioJack
     input_audio_jack.gnd ~ gnd
     output_audio_jack = new QuarterInchAudioJack
     output_audio_jack.gnd ~ gnd
 
-    batt_tvs_diode = new Diode
-    batt_tvs_diode.mpn = "BZT52C12" # This is 500mW, look for 1W
-    batt_tvs_diode.cathode ~ batt_power_9V.vcc
-    batt_tvs_diode.anode ~ gnd
+    # POWER SUPPLY
+    power_supply = new PowerSupply
+    power_supply.power_9V ~ batt_power_9V
+    power_supply.power_4V5 ~ power_4V5
+    power_supply.power_neg_9V ~ power_neg_9V
+    power_supply.power_16V ~ power_16V
+
+    for rail in [batt_power_9V, power_4V5, power_neg_9V, power_16V]:
+        rail.gnd ~ gnd
+    # INPUT STAGE
+    input_stage = new InputStage
+    input_stage.power_9V ~ batt_power_9V
+    input_stage.power_4V5 ~ power_4V5
+
+    # GAIN STAGE
+    gain_stage = new GainStage
+    gain_stage.power_9V ~ batt_power_9V
+    gain_stage.power_4V5 ~ power_4V5
+
+    # SUMMING OPAMP
+    summing_opamp = new SummingOpamp
+    summing_opamp.power_16V ~ power_16V
+    summing_opamp.power_neg_9V ~ power_neg_9V
+    summing_opamp.power_4V5 ~ power_4V5
+
+    # TONE CONTROL
+    tone_control = new ToneControl
+    tone_control.power_16V ~ power_16V
+    tone_control.power_neg_9V ~ power_neg_9V
+    tone_control.power_4V5 ~ power_4V5
+    
+    # OUTPUT STAGE
+    output_stage = new OutputStage
+
+    # BYPASS MODE
+    bypass = new Bypass
+
+    # CONNECTIVITY
+    input_audio_jack.line ~> input_stage ~> gain_stage ~> summing_opamp ~> tone_control ~> output_stage ~> output_audio_jack.line
+    gain_stage.input ~> bypass ~> output_stage.bypass_input
+    
+    # TODO: ADD SWITCH
+
+
+module PowerSupply:
+    # interfaces
+    input = new ElectricSignal
+    output = new ElectricSignal
+    signal gnd
+    power_9V = new ElectricPower
+    power_9V.voltage = 7.2V to 9.6V
+    power_4V5 = new ElectricPower # Virtual ground
+    power_4V5.voltage = 4.5V +/- 10%
+    power_neg_9V = new ElectricPower
+    power_neg_9V.voltage = -9.6V to -7.2V
+    power_16V = new ElectricPower
+    power_16V.voltage = 16.2V
+    for rail in [power_9V, power_4V5, power_neg_9V, power_16V]:
+        rail.gnd ~ gnd
 
     # POWER SUPPLY
+    batt_tvs_diode = new Diode
+    batt_tvs_diode.lcsc_id = "C173429" #BZT52C12 is 500mW, look for 1W
+    batt_tvs_diode.cathode ~ power_9V.vcc
+    batt_tvs_diode.anode ~ gnd
+
     max1044 = new MAX1044ESA
-    max1044.power ~ batt_power_9V
+    max1044.power ~ power_9V
     max1044.BOOST ~ max1044.power.vcc
     max1044.VOUT ~ power_neg_9V.vcc
 
     # bypass caps
     batt_bypass_cap = new Capacitor
-    batt_bypass_cap.value = 47uF +/- 20%
-    batt_bypass_cap.voltage = "25V"
-    batt_bypass_cap.power ~ batt_power_9V
+    batt_bypass_cap.capacitance = 47uF +/- 20%
+    batt_bypass_cap.max_voltage = 25V to 50V
+    batt_bypass_cap.power ~ power_9V
     neg_bypass_cap = new Capacitor
-    neg_bypass_cap.value = 47uF +/- 20%
-    neg_bypass_cap.voltage = "25V"
+    neg_bypass_cap.capacitance = 47uF +/- 20%
+    neg_bypass_cap.max_voltage = 25V to 50V
     neg_bypass_cap.power ~ power_4V5
     power_neg_9V_bypass_cap = new Capacitor
-    power_neg_9V_bypass_cap.value = 1uF +/- 20%
-    power_neg_9V_bypass_cap.voltage = "25V"
+    power_neg_9V_bypass_cap.capacitance = 1uF +/- 20%
+    power_neg_9V_bypass_cap.max_voltage = 25V to 50V
     power_neg_9V_bypass_cap.power ~ power_neg_9V
     power_16V_bypass_cap = new Capacitor
-    power_16V_bypass_cap.value = 1uF +/- 20%
-    power_16V_bypass_cap.voltage = "25V"
+    power_16V_bypass_cap.capacitance = 1uF +/- 20%
+    power_16V_bypass_cap.max_voltage = 25V to 50V
     power_16V_bypass_cap.power ~ power_16V
 
     rectifier1 = new Diode
-    rectifier1.mpn = "C727088"
-    rectifier1.anode ~ max1044.BOOST
+    rectifier1.lcsc_id = "C727088"
     rectifier2 = new Diode
-    rectifier2.mpn = "C727088"
-    rectifier2.anode ~ rectifier1.cathode
-    rectifier2.cathode ~ power_16V.vcc
+    rectifier2.lcsc_id = "C727088"
+    max1044.BOOST ~> rectifier1 ~> rectifier2 ~> power_16V.vcc
 
     boost_cap1 = new Capacitor
-    boost_cap1.value = 1uF +/- 20%
-    boost_cap1.voltage = "25V"
+    boost_cap1.capacitance = 1uF +/- 20%
+    boost_cap1.max_voltage = 25V to 50V
     boost_cap1.p1 ~ max1044.CAPminus
     boost_cap1.p2 ~ max1044.CAPplus
     boost_cap2 = new Capacitor
-    boost_cap2.value = 1uF +/- 20%
-    boost_cap2.voltage = "25V"
+    boost_cap2.capacitance = 1uF +/- 20%
+    boost_cap2.max_voltage = 25V to 50V
     boost_cap2.p1 ~ max1044.CAPplus
     boost_cap2.p2 ~ rectifier2.anode
 
     res_divider = new ResistorVoltageDivider
-    res_divider.power ~ batt_power_9V
+    res_divider.power ~ power_9V
     res_divider.ratio = 0.5
-    res_divider.r_total = 54000 ohm
-    res_divider.output ~ power_4V5.vcc
+    res_divider.r_total = 54kohm
+    res_divider.output.line ~ power_4V5.vcc
 
-    tone_opamps = new TL072CDT
-    # INPUT STAGE
-    gain_opamps = new TL072CDT
-    for opamp in gain_opamps.opamps:
-        opamp.power ~ batt_power_9V
-    gain_opamps.opamps[0].non_inverting_input ~ gain_opamps.opamps[0].output
+module InputStage:
+    input = new ElectricSignal
+    output = new ElectricSignal
+    power_9V = new ElectricPower
+    power_4V5 = new ElectricPower
+
+    # GROSS, delete this
+    input_buffer_opamp = new TL072CDT
+
+    input_buffer_opamp.opamps[0].power ~ power_9V
     input_r = new Resistor
-    input_r.value = 10kohm +/- 1%
-    # input_r.footprint = "R01005"
+    input_r.resistance = 10kohm +/- 1%
+    input_r.package = "R0402"
     ac_input_cap = new Capacitor
-    ac_input_cap.value = 0.1uF +/- 20%
-    ac_input_cap.voltage = "6V"
-    # ac_input_cap.footprint = "C01005"
+    ac_input_cap.capacitance = 0.1uF +/- 20%
+    ac_input_cap.max_voltage = 16V to 25V
+    ac_input_cap.package = "C0402"
     input_dc_bias_r = new Resistor
-    input_dc_bias_r.value = 1000000 ohm +/- 10%
-    # input_dc_bias_r.footprint = "R01005"
-    input_audio_jack.line ~> input_r ~> ac_input_cap.p1
-    ac_input_cap.p2 ~ gain_opamps.opamps[0].non_inverting_input
-    gain_opamps.opamps[0].non_inverting_input ~ power_4V5.vcc
+    input_dc_bias_r.resistance = 1000000 ohm +/- 10%
 
-    # GAIN STAGE
+    input_buffer_opamp.opamps[0].inverting_input ~ input_buffer_opamp.opamps[0].output
+    input.line ~> input_r ~> ac_input_cap ~> input_buffer_opamp.opamps[0].non_inverting_input
+    input_buffer_opamp.opamps[0].non_inverting_input ~> input_dc_bias_r ~> power_4V5.vcc
+
+module GainStage:
     # big gain stage
+    input = new ElectricSignal
+    output = new ElectricSignal
+    diode_tap = new Tap
+    ff2_tap = new Tap
+    power_9V = new ElectricPower
+    power_4V5 = new ElectricPower
+
+    gain_stage_opamp = new TL072CDT
+    gain_stage_opamp.opamps[0].power ~ power_9V
     gain_stage_ac_cap_c3 = new Capacitor
-    gain_stage_ac_cap_c3.value = 0.1uF +/- 20%
-    gain_stage_ac_cap_c3.voltage = "25V"
+    gain_stage_ac_cap_c3.capacitance = 0.1uF +/- 20%
+    gain_stage_ac_cap_c3.max_voltage = 25V to 50V
     gs_r6 = new Resistor
-    gs_r6.value = 10 kohm +/- 1%
+    gs_r6.resistance = 10 kohm +/- 1%
     gs_c5 = new Capacitor
-    gs_c5.value = 68 nF +/- 10%
-    gs_c5.voltage = "16V"
+    gs_c5.capacitance = 68 nF +/- 10%
+    gs_c5.max_voltage = 16V to 25V
     rv_gain_a_pot = new Potentiometer
     rv_gain_a_pot.r_total = 100 kohm +/- 10%
     gs_r10 = new Resistor
-    gs_r10.value = 2 kohm +/- 1%
+    gs_r10.resistance = 2 kohm +/- 1%
     gs_r11 = new Resistor
-    gs_r11.value = 15 kohm +/- 1%
+    gs_r11.resistance = 15 kohm +/- 1%
     gs_r12 = new Resistor
-    gs_r12.value = 422 kohm +/- 1%
+    gs_r12.resistance = 422 kohm +/- 1%
     gs_r13 = new Resistor
-    gs_r13.value = 1 kohm +/- 1%
+    gs_r13.resistance = 1 kohm +/- 1%
     gs_c7 = new Capacitor
-    gs_c7.value = 82 nF +/- 10%
-    gs_c7.voltage = "16V"
+    gs_c7.capacitance = 82 nF +/- 10%
+    gs_c7.max_voltage = 16V to 25V
     gs_c8 = new Capacitor
-    gs_c8.value = 390 pF +/- 10%
-    gs_c8.voltage = "16V"
+    gs_c8.capacitance = 390 pF +/- 10%
+    gs_c8.max_voltage = 16V to 25V
     gs_c9 = new Capacitor
-    gs_c9.value = 1 uF +/- 10%
-    gs_c9.voltage = "16V"
+    gs_c9.capacitance = 1 uF +/- 10%
+    gs_c9.max_voltage = 16V to 25V
     gs_clipping_d2 = new BAT41
     gs_clipping_d3 = new BAT41
     gs_c10 = new Capacitor
-    gs_c10.value = 1 uF +/- 10%
-    gs_c10.voltage = "16V"
+    gs_c10.capacitance = 1 uF +/- 10%
+    gs_c10.max_voltage = 16V to 25V
     gs_r16 = new Resistor
-    gs_r16.value = 47 kohm +/- 1%
+    gs_r16.resistance = 47 kohm +/- 1%
     
-    gain_stage_ac_cap_c3.p1 ~ gain_opamps.opamps[0].output
-    gain_stage_ac_cap_c3.p2 ~> gs_r6 ~> gain_opamps.opamps[1].non_inverting_input
-    gain_stage_ac_cap_c3.p2 ~> gs_c5 ~> gain_opamps.opamps[1].non_inverting_input
-    gain_opamps.opamps[1].non_inverting_input ~ rv_gain_a_pot.resistors_ifs[0]
+    gain_stage_ac_cap_c3.p1 ~ gain_stage_opamp.opamps[0].output
+    gain_stage_ac_cap_c3.p2 ~> gs_r6 ~> gain_stage_opamp.opamps[0].non_inverting_input
+    gain_stage_ac_cap_c3.p2 ~> gs_c5 ~> gain_stage_opamp.opamps[0].non_inverting_input
+    gain_stage_opamp.opamps[0].non_inverting_input ~ rv_gain_a_pot.resistors_ifs[0]
     rv_gain_a_pot.wiper ~ power_4V5.vcc
-    rv_gain_a_pot.resistors_ifs[1] ~> gs_r10 ~> gs_r11 ~> gain_opamps.opamps[1].inverting_input
-    # gs_r10 ~ gs_c7 parallel connection would be cool
-    rv_gain_a_pot.resistors_ifs[1] ~> gs_r10 ~> gs_c7 ~> gain_opamps.opamps[1].inverting_input
-    gain_opamps.opamps[1].inverting_input ~> gs_r12 ~> gain_opamps.opamps[1].output
-    gain_opamps.opamps[1].inverting_input ~> gs_c8 ~> gain_opamps.opamps[1].output
-    gain_opamps.opamps[1].output ~> gs_c9 ~> gs_r13 ~> gs_c10 ~> gs_r16.p1
-    gs_r16.p2 ~ tone_opamps.opamps[0].inverting_input
-    gs_r13.p2 ~> gs_clipping_d2 ~> gnd
-    gnd ~> gs_clipping_d3 ~> gs_r13.p2
+    rv_gain_a_pot.resistors_ifs[1] ~> gs_r10 ~> gs_r11 ~> gain_stage_opamp.opamps[0].inverting_input
+    rv_gain_a_pot.resistors_ifs[1] ~> gs_r10 ~> gs_c7 ~> gain_stage_opamp.opamps[0].inverting_input
+    gain_stage_opamp.opamps[0].inverting_input ~> gs_r12 ~> gain_stage_opamp.opamps[0].output
+    gain_stage_opamp.opamps[0].inverting_input ~> gs_c8 ~> gain_stage_opamp.opamps[0].output
+    gain_stage_opamp.opamps[0].output ~> gs_c9 ~> gs_r13 ~> diode_tap ~> gs_c10 ~> ff2_tap ~> gs_r16 ~> output.line
+    diode_tap.tap ~> gs_clipping_d2 ~> power_9V.gnd
+    power_9V.gnd ~> gs_clipping_d3 ~> diode_tap.tap
 
     # feedforward path 1, adding low freq to output
     ff1_low_pass = new FilterElectricalRC
     ff1_low_pass.R = 1.5 kohm +/- 1%
     ff1_low_pass.C = 1 uF +/- 10%
     ff1_summing_res = new Resistor
-    ff1_summing_res.value = 15 kohm +/- 1%
-    gain_stage_ac_cap_c3.p2 ~ ff1_low_pass.in_
-    ff1_low_pass.out.reference.gnd ~ gnd
-    ff1_low_pass.out.line ~> ff1_summing_res ~> tone_opamps.opamps[0].inverting_input
+    ff1_summing_res.resistance = 15 kohm +/- 1%
+    gain_stage_ac_cap_c3.p2 ~ ff1_low_pass.in_.line
+    ff1_low_pass.out.reference.gnd ~ power_9V.gnd
+    ff1_low_pass.out.line ~> ff1_summing_res ~> output.line
 
     # feedforward path 2, adding 
     ff2_r5 = new Resistor
-    ff2_r5.value = 5.1 kohm +/- 1%
+    ff2_r5.resistance = 5.1 kohm +/- 1%
     ff2_c4 = new Capacitor
-    ff2_c4.value = 68nF +/- 10%
-    ff2_c4.voltage = "16V"
+    ff2_c4.capacitance = 68nF +/- 10%
+    ff2_c4.max_voltage = 16V to 25V
     ff2_r8 = new Resistor
-    ff2_r8.value = 1.5 kohm +/- 1%
+    ff2_r8.resistance = 1.5 kohm +/- 1%
     ff2_c6 = new Capacitor
-    ff2_c6.value = 390nF +/- 10%
-    ff2_c6.voltage = "16V"
+    ff2_c6.capacitance = 390nF +/- 10%
+    ff2_c6.max_voltage = 16V to 25V
     ff2_r9 = new Resistor
-    ff2_r9.value = 1 kohm +/- 1%
+    ff2_r9.resistance = 1 kohm +/- 1%
     rv_gain_b_pot = new Potentiometer
     rv_gain_b_pot.r_total = 100 kohm +/- 10%
     ff2_r15 = new Resistor
-    ff2_r15.value = 22 kohm +/- 1%
+    ff2_r15.resistance = 22 kohm +/- 1%
     ff2_c11 = new Capacitor
-    ff2_c11.value = 2.2nF +/- 20%
-    ff2_c11.voltage = "16V"
+    ff2_c11.capacitance = 2.2nF +/- 20%
+    ff2_c11.max_voltage = 16V to 25V
     ff2_r17 = new Resistor
-    ff2_r17.value = 27 kohm +/- 1%
+    ff2_r17.resistance = 27 kohm +/- 1%
     ff2_r18 = new Resistor
-    ff2_r18.value = 12 kohm +/- 1%
+    ff2_r18.resistance = 12 kohm +/- 1%
     ff2_c12 = new Capacitor
-    ff2_c12.value = 27nF +/- 10%
-    ff2_c12.voltage = "16V"
+    ff2_c12.capacitance = 27nF +/- 10%
+    ff2_c12.max_voltage = 16V to 25V
 
-    input_audio_jack.line ~ ff2_r5.p1; ff2_r5.p1 ~ ff2_c4.p1
+    input.line ~ ff2_r5.p1; ff2_r5.p1 ~ ff2_c4.p1
     ff2_c4.p2 ~ ff2_r5.p2; ff2_r5.p2 ~ ff2_r8.p1; ff2_r8.p1 ~ ff2_c6.p1; ff2_c6.p1 ~ rv_gain_b_pot.resistors_ifs[0]
     ff2_r8.p2 ~ power_4V5.vcc; ff2_c6 ~> ff2_r9 ~> power_4V5.vcc; rv_gain_b_pot.resistors_ifs[1] ~ power_4V5.vcc
-    rv_gain_b_pot.wiper ~> ff2_r17 ~> tone_opamps.opamps[0].inverting_input
-    rv_gain_b_pot.wiper ~> ff2_r18 ~> ff2_c12 ~> tone_opamps.opamps[0].inverting_input
-    rv_gain_b_pot.wiper ~> ff2_r15 ~> ff2_c11 ~> gs_r16.p1
+    rv_gain_b_pot.wiper ~> ff2_r17 ~> output.line
+    rv_gain_b_pot.wiper ~> ff2_r18 ~> ff2_c12 ~> output.line
+    rv_gain_b_pot.wiper ~> ff2_r15 ~> ff2_c11 ~> ff2_tap
 
-    # SUMMING OPAMP
+module SummingOpamp:
+    input = new ElectricSignal
+    output = new ElectricSignal
+    power_16V = new ElectricPower
+    power_neg_9V = new ElectricPower
+    power_4V5 = new ElectricPower
+
+    summing_opamps = new TL072CDT
+
     sum_r20 = new Resistor
     sum_r20.value = 392 kohm +/- 1%
     sum_c13 = new Capacitor
     sum_c13.value = 820 pF +/- 10%
-    sum_c13.voltage = "50V"
-    tone_opamps.opamps[0].power.vcc ~ power_16V.vcc
-    tone_opamps.opamps[0].power.gnd ~ power_neg_9V.vcc
-    tone_opamps.opamps[0].non_inverting_input ~ power_4V5.vcc
-    tone_opamps.opamps[0].inverting_input ~> sum_r20 ~> tone_opamps.opamps[0].output
-    tone_opamps.opamps[0].inverting_input ~> sum_c13 ~> tone_opamps.opamps[0].output
+    sum_c13.voltage = 50V to 100V
+    summing_opamps.opamps[0].power.vcc ~ power_16V.vcc
+    summing_opamps.opamps[0].power.gnd ~ power_neg_9V.vcc
+    summing_opamps.opamps[0].non_inverting_input ~ power_4V5.vcc
+    summing_opamps.opamps[0].inverting_input ~> sum_r20 ~> summing_opamps.opamps[0].output
+    summing_opamps.opamps[0].inverting_input ~> sum_c13 ~> summing_opamps.opamps[0].output
 
-    # TONE CONTROL
+module ToneControl:
+    input = new ElectricSignal
+    output = new ElectricSignal
+    power_16V = new ElectricPower
+    power_neg_9V = new ElectricPower
+    power_4V5 = new ElectricPower
+
+    tone_opamps = new TL072CDT
     tone_r21 = new Resistor
-    tone_r21.value = 1.8 kohm +/- 1%
+    tone_r21.resistance = 1.8 kohm +/- 1%
     tone_r22 = new Resistor
-    tone_r22.value = 100 kohm +/- 1%
+    tone_r22.resistance = 100 kohm +/- 1%
     tone_r23 = new Resistor
-    tone_r23.value = 4.7 kohm +/- 1%
+    tone_r23.resistance = 4.7 kohm +/- 1%
     tone_r24 = new Resistor
-    tone_r24.value = 100 kohm +/- 1%
+    tone_r24.resistance = 100 kohm +/- 1%
     rv_tone_pot = new Potentiometer
     rv_tone_pot.r_total = 10 kohm +/- 10%
     tone_c14 = new Capacitor
-    tone_c14.value = 3.9 nF +/- 10%
-    tone_c14.voltage = "50V"
+    tone_c14.capacitance = 3.9 nF +/- 10%
+    tone_c14.max_voltage = 50V
 
-    tone_opamps.opamps[1].power.vcc ~ power_16V.vcc
-    tone_opamps.opamps[1].power.gnd ~ power_neg_9V.vcc
-    tone_opamps.opamps[1].non_inverting_input ~ power_4V5.vcc
-    tone_opamps.opamps[0].output ~> tone_r22 ~> tone_opamps.opamps[1].inverting_input
-    tone_opamps.opamps[0].output ~> tone_r21 ~> rv_tone_pot.resistors_ifs[1]
-    rv_tone_pot.resistors_ifs[0] ~> tone_r23 ~> tone_opamps.opamps[1].output
-    rv_tone_pot.wiper ~> tone_c14 ~> tone_opamps.opamps[1].inverting_input
-    rv_tone_pot.wiper ~> tone_c14 ~> tone_r24 ~> tone_opamps.opamps[1].output
+    tone_opamps.opamps[0].power.vcc ~ power_16V.vcc
+    tone_opamps.opamps[0].power.gnd ~ power_neg_9V.vcc
+    tone_opamps.opamps[0].non_inverting_input ~ power_4V5.vcc
+    input.line ~> tone_r22 ~> tone_opamps.opamps[0].inverting_input
+    input.line ~> tone_r21 ~> rv_tone_pot.resistors_ifs[1]
+    rv_tone_pot.resistors_ifs[0] ~> tone_r23 ~> tone_opamps.opamps[0].output
+    rv_tone_pot.wiper ~> tone_c14 ~> tone_opamps.opamps[0].inverting_input
+    rv_tone_pot.wiper ~> tone_c14 ~> tone_r24 ~> tone_opamps.opamps[0].output
+    tone_opamps.opamps[0].output ~> output.line
 
-    # BYPASS MODE
-    bypass_c2 = new Capacitor
-    bypass_c2.value = 4.7 uF +/- 10%
-    bypass_c2.voltage = "16V"
-    bypass_r3 = new Resistor
-    bypass_r3.value = 100 kohm +/- 1%
-    bypass_r4 = new Resistor
-    bypass_r4.value = 560 ohm +/- 1%
+module OutputStage:
+    input = new ElectricSignal
+    output = new ElectricSignal
+    bypass_input = new ElectricSignal
 
-    gain_opamps.opamps[0].output ~> bypass_c2 ~> bypass_r4.p1
-    bypass_r4.p1 ~> bypass_r3 ~> gnd
-    
-    # OUTPUT STAGE
     out_c15 = new Capacitor
-    out_c15.value = 4.7 uF +/- 10%
-    out_c15.voltage = "50V"
+    out_c15.capacitance = 4.7 uF +/- 10%
+    out_c15.max_voltage = 50V
     out_r25 = new Resistor
-    out_r25.value = 560 ohm +/- 1%
+    out_r25.resistance = 560 ohm +/- 1%
     rv_level_pot = new Potentiometer
     rv_level_pot.r_total = 10 kohm +/- 10%
     out_r28 = new Resistor
-    out_r28.value = 100 kohm +/- 1%
+    out_r28.resistance = 100 kohm +/- 1%
     pop_elim = new ResistorVoltageDivider
     pop_elim.ratio = 0.5
     pop_elim.r_total = 136 kohm +/- 5%
 
-    tone_opamps.opamps[1].output ~> out_c15 ~> out_r25 ~> rv_level_pot.resistors_ifs[0]
-    rv_level_pot.resistors_ifs[1] ~ gnd
-    output_audio_jack.line ~> out_r28 ~> gnd
-    output_audio_jack.line ~ pop_elim.output
-    pop_elim.power.vcc ~ bypass_r4.p2
+    input ~> out_c15 ~> out_r25 ~> rv_level_pot.resistors_ifs[0]
+    rv_level_pot.resistors_ifs[1] ~ input.reference
+    output_audio_jack.line ~> out_r28 ~> input.reference
+    pop_elim.output.line ~> output.line
+    pop_elim.power.vcc ~ bypass_input.line
     pop_elim.power.gnd ~ rv_level_pot.wiper
-    # TODO: ADD SWITCH
 
+module Bypass:
+    input = new ElectricSignal
+    output = new ElectricSignal
+    mid_tap = new Tap
+
+    bypass_c2 = new Capacitor
+    bypass_c2.capacitance = 4.7 uF +/- 10%
+    bypass_c2.max_voltage = 16V to 25V
+    bypass_r3 = new Resistor
+    bypass_r3.resistance = 100 kohm +/- 1%
+    bypass_r4 = new Resistor
+    bypass_r4.resistance = 560 ohm +/- 1%
+
+    input ~> bypass_c2 ~> mid_tap ~> bypass_r4 ~> output
+    mid_tap.tap ~> bypass_r3 ~> gnd
 
 module QuarterInchAudioJack:
     signal line ~ pin INPUT

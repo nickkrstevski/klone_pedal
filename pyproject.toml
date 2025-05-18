@@ -1,0 +1,10 @@
+[project]
+name = "klone_pedal"
+version = "0.1.0"
+description = "Overdrive guitar pedal"
+requires-python = ">=3.8"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build" 
