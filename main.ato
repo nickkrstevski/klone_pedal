@@ -17,6 +17,8 @@ from "max1044esa.ato" import MAX1044ESA
 from "tl072.ato" import TL072CDT
 from "bat41.ato" import BAT41
 from "tap.py" import Tap
+from "bridgeable.py" import Bridgeable
+# from "bridgeable_module.py" import BridgeableModule
 
 module Pedal:
     # POWER DOMAINS
@@ -31,9 +33,9 @@ module Pedal:
     power_16V.voltage = 16.2V
 
     input_audio_jack = new QuarterInchAudioJack
-    input_audio_jack.gnd ~ gnd
+    input_audio_jack.audio.reference.gnd ~ gnd
     output_audio_jack = new QuarterInchAudioJack
-    output_audio_jack.gnd ~ gnd
+    output_audio_jack.audio.reference.gnd ~ gnd
 
     # POWER SUPPLY
     power_supply = new PowerSupply
@@ -73,7 +75,7 @@ module Pedal:
     bypass = new Bypass
 
     # CONNECTIVITY
-    input_audio_jack.line ~> input_stage ~> gain_stage ~> summing_opamp ~> tone_control ~> output_stage ~> output_audio_jack.line
+    input_audio_jack.audio ~> input_stage ~> gain_stage ~> summing_opamp ~> tone_control ~> output_stage ~> output_audio_jack.audio
     gain_stage.input ~> bypass ~> output_stage.bypass_input
     
     # TODO: ADD SWITCH
@@ -147,7 +149,7 @@ module PowerSupply:
     res_divider.r_total = 54kohm
     res_divider.output.line ~ power_4V5.vcc
 
-module InputStage:
+module InputStage from Bridgeable:
     input = new ElectricSignal
     output = new ElectricSignal
     power_9V = new ElectricPower
@@ -171,7 +173,7 @@ module InputStage:
     input.line ~> input_r ~> ac_input_cap ~> input_buffer_opamp.opamps[0].non_inverting_input
     input_buffer_opamp.opamps[0].non_inverting_input ~> input_dc_bias_r ~> power_4V5.vcc
 
-module GainStage:
+module GainStage from Bridgeable:
     # big gain stage
     input = new ElectricSignal
     output = new ElectricSignal
@@ -275,7 +277,7 @@ module GainStage:
     rv_gain_b_pot.wiper ~> ff2_r18 ~> ff2_c12 ~> output.line
     rv_gain_b_pot.wiper ~> ff2_r15 ~> ff2_c11 ~> ff2_tap
 
-module SummingOpamp:
+module SummingOpamp from Bridgeable:
     input = new ElectricSignal
     output = new ElectricSignal
     power_16V = new ElectricPower
@@ -295,7 +297,7 @@ module SummingOpamp:
     summing_opamps.opamps[0].inverting_input ~> sum_r20 ~> summing_opamps.opamps[0].output
     summing_opamps.opamps[0].inverting_input ~> sum_c13 ~> summing_opamps.opamps[0].output
 
-module ToneControl:
+module ToneControl from Bridgeable:
     input = new ElectricSignal
     output = new ElectricSignal
     power_16V = new ElectricPower
@@ -327,7 +329,7 @@ module ToneControl:
     rv_tone_pot.wiper ~> tone_c14 ~> tone_r24 ~> tone_opamps.opamps[0].output
     tone_opamps.opamps[0].output ~> output.line
 
-module OutputStage:
+module OutputStage from Bridgeable:
     input = new ElectricSignal
     output = new ElectricSignal
     bypass_input = new ElectricSignal
@@ -345,14 +347,14 @@ module OutputStage:
     pop_elim.ratio = 0.5
     pop_elim.r_total = 136 kohm +/- 5%
 
-    input ~> out_c15 ~> out_r25 ~> rv_level_pot.resistors_ifs[0]
-    rv_level_pot.resistors_ifs[1] ~ input.reference
-    output_audio_jack.line ~> out_r28 ~> input.reference
+    input.line ~> out_c15 ~> out_r25 ~> rv_level_pot.resistors_ifs[0]
+    rv_level_pot.resistors_ifs[1] ~ input.reference.gnd
+    output.line ~> out_r28 ~> input.reference.gnd
     pop_elim.output.line ~> output.line
     pop_elim.power.vcc ~ bypass_input.line
     pop_elim.power.gnd ~ rv_level_pot.wiper
 
-module Bypass:
+module Bypass from Bridgeable:
     input = new ElectricSignal
     output = new ElectricSignal
     mid_tap = new Tap
@@ -365,9 +367,10 @@ module Bypass:
     bypass_r4 = new Resistor
     bypass_r4.resistance = 560 ohm +/- 1%
 
-    input ~> bypass_c2 ~> mid_tap ~> bypass_r4 ~> output
-    mid_tap.tap ~> bypass_r3 ~> gnd
+    input.line ~> bypass_c2 ~> mid_tap ~> bypass_r4 ~> output.line
+    mid_tap.tap ~> bypass_r3 ~> input.reference.gnd
 
 module QuarterInchAudioJack:
-    signal line ~ pin INPUT
-    signal gnd ~ pin GND
+    audio = new ElectricSignal
+    audio.line ~ pin INPUT
+    audio.reference.gnd ~ pin GND

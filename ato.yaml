@@ -8,6 +8,11 @@ paths:
 builds:
   default:
     entry: main.ato:Pedal
+  quick:
+    entry: main.ato:Pedal
+    exclude_targets:
+      - bom
+      - mfg-data
 
 # This metadata is only required for publishing
 # Uncomment it and fill out the fields to publish your package
