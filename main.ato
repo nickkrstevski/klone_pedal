@@ -113,10 +113,10 @@ module PowerSupply:
     batt_bypass_cap.capacitance = 47uF +/- 20%
     batt_bypass_cap.max_voltage = 25V to 50V
     batt_bypass_cap.power ~ power_9V
-    neg_bypass_cap = new Capacitor
-    neg_bypass_cap.capacitance = 47uF +/- 20%
-    neg_bypass_cap.max_voltage = 25V to 50V
-    neg_bypass_cap.power ~ power_4V5
+    power_4V5_bypass_cap = new Capacitor
+    power_4V5_bypass_cap.capacitance = 47uF +/- 20%
+    power_4V5_bypass_cap.max_voltage = 25V to 50V
+    power_4V5_bypass_cap.power ~ power_4V5
     power_neg_9V_bypass_cap = new Capacitor
     power_neg_9V_bypass_cap.capacitance = 1uF +/- 20%
     power_neg_9V_bypass_cap.max_voltage = 25V to 50V
@@ -296,6 +296,7 @@ module SummingOpamp from Bridgeable:
     summing_opamps.opamps[0].non_inverting_input ~ power_4V5.vcc
     summing_opamps.opamps[0].inverting_input ~> sum_r20 ~> summing_opamps.opamps[0].output
     summing_opamps.opamps[0].inverting_input ~> sum_c13 ~> summing_opamps.opamps[0].output
+    summing_opamps.opamps[0].output ~ output.line
 
 module ToneControl from Bridgeable:
     input = new ElectricSignal
