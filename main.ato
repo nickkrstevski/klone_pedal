@@ -172,6 +172,7 @@ module InputStage from Bridgeable:
     input_buffer_opamp.opamps[0].inverting_input ~ input_buffer_opamp.opamps[0].output
     input.line ~> input_r ~> ac_input_cap ~> input_buffer_opamp.opamps[0].non_inverting_input
     input_buffer_opamp.opamps[0].non_inverting_input ~> input_dc_bias_r ~> power_4V5.vcc
+    input_buffer_opamp.opamps[0].output ~ output
 
 module GainStage from Bridgeable:
     # big gain stage
@@ -231,6 +232,7 @@ module GainStage from Bridgeable:
     gain_stage_opamp.opamps[0].output ~> gs_c9 ~> gs_r13 ~> diode_tap ~> gs_c10 ~> ff2_tap ~> gs_r16 ~> output.line
     diode_tap.tap ~> gs_clipping_d2 ~> power_9V.gnd
     power_9V.gnd ~> gs_clipping_d3 ~> diode_tap.tap
+    input.line ~ gain_stage_ac_cap_c3.p1
 
     # feedforward path 1, adding low freq to output
     ff1_low_pass = new FilterElectricalRC
@@ -238,7 +240,7 @@ module GainStage from Bridgeable:
     ff1_low_pass.C = 1 uF +/- 10%
     ff1_summing_res = new Resistor
     ff1_summing_res.resistance = 15 kohm +/- 1%
-    gain_stage_ac_cap_c3.p2 ~ ff1_low_pass.in_.line
+    input ~ ff1_low_pass.in_
     ff1_low_pass.out.reference.gnd ~ power_9V.gnd
     ff1_low_pass.out.line ~> ff1_summing_res ~> output.line
 
@@ -291,6 +293,7 @@ module SummingOpamp from Bridgeable:
     sum_c13 = new Capacitor
     sum_c13.value = 820 pF +/- 10%
     sum_c13.voltage = 50V to 100V
+    input.line ~ summing_opamps.opamps[0].inverting_input
     summing_opamps.opamps[0].power.vcc ~ power_16V.vcc
     summing_opamps.opamps[0].power.gnd ~ power_neg_9V.vcc
     summing_opamps.opamps[0].non_inverting_input ~ power_4V5.vcc
