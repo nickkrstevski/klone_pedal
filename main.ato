@@ -219,6 +219,7 @@ module GainStage from Bridgeable:
     gs_c10.max_voltage = 16V to 25V
     gs_r16 = new Resistor
     gs_r16.resistance = 47 kohm +/- 1%
+
     
     gain_stage_ac_cap_c3.p1 ~ gain_stage_opamp.opamps[0].output
     gain_stage_ac_cap_c3.p2 ~> gs_r6 ~> gain_stage_opamp.opamps[0].non_inverting_input
