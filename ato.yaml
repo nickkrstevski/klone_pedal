@@ -3,7 +3,6 @@ requires-atopile: "0.8.1"
 paths:
   src: ./
   layout: ./layouts
-  footprints: ./footprints
 
 builds:
   default:
