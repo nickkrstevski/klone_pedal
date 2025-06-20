@@ -12,8 +12,8 @@ import Diode
 import ResistorVoltageDivider
 import FilterElectricalRC
 import OpAmp
-import Potentiometer
-from "max1044esa.ato" import MAX1044ESA
+from "parts/D6_Potentiometer/D6_Potentiometer.ato" import D6_Potentiometer_driver
+from "max1044esa.ato" import XBLW_MAX1044ESA_XBLW_driver
 from "tl072.ato" import TL072CDT
 from "bat41.ato" import BAT41
 from "tap.py" import Tap
@@ -103,10 +103,10 @@ module PowerSupply:
     batt_tvs_diode.cathode ~ power_9V.vcc
     batt_tvs_diode.anode ~ gnd
 
-    max1044 = new MAX1044ESA
+    max1044 = new XBLW_MAX1044ESA_XBLW_driver
     max1044.power ~ power_9V
-    max1044.BOOST ~ max1044.power.vcc
-    max1044.VOUT ~ power_neg_9V.vcc
+    max1044.package.BOOST ~ max1044.power.vcc
+    max1044.package.VOUT ~ power_neg_9V.vcc
 
     # bypass caps
     batt_bypass_cap = new Capacitor
@@ -130,17 +130,17 @@ module PowerSupply:
     rectifier1.lcsc_id = "C727088"
     rectifier2 = new Diode
     rectifier2.lcsc_id = "C727088"
-    max1044.BOOST ~> rectifier1 ~> rectifier2 ~> power_16V.vcc
+    max1044.package.BOOST ~> rectifier1 ~> rectifier2 ~> power_16V.vcc
 
     boost_cap1 = new Capacitor
     boost_cap1.capacitance = 1uF +/- 20%
     boost_cap1.max_voltage = 25V to 50V
-    boost_cap1.p1 ~ max1044.CAPminus
-    boost_cap1.p2 ~ max1044.CAPplus
+    boost_cap1.p1 ~ max1044.package.CAPneg
+    boost_cap1.p2 ~ max1044.package.CAPpos
     boost_cap2 = new Capacitor
     boost_cap2.capacitance = 1uF +/- 20%
     boost_cap2.max_voltage = 25V to 50V
-    boost_cap2.p1 ~ max1044.CAPplus
+    boost_cap2.p1 ~ max1044.package.CAPpos
     boost_cap2.p2 ~ rectifier2.anode
 
     res_divider = new ResistorVoltageDivider
@@ -193,7 +193,8 @@ module GainStage from Bridgeable:
     gs_c5 = new Capacitor
     gs_c5.capacitance = 68 nF +/- 10%
     gs_c5.max_voltage = 16V to 25V
-    rv_gain_a_pot = new Potentiometer
+    rv_gain_a_pot = new D6_Potentiometer_driver
+
     rv_gain_a_pot.r_total = 100 kohm +/- 10%
     gs_r10 = new Resistor
     gs_r10.resistance = 2 kohm +/- 1%
@@ -258,7 +259,7 @@ module GainStage from Bridgeable:
     ff2_c6.max_voltage = 16V to 25V
     ff2_r9 = new Resistor
     ff2_r9.resistance = 1 kohm +/- 1%
-    rv_gain_b_pot = new Potentiometer
+    rv_gain_b_pot = new D6_Potentiometer_driver
     rv_gain_b_pot.r_total = 100 kohm +/- 10%
     ff2_r15 = new Resistor
     ff2_r15.resistance = 22 kohm +/- 1%
@@ -318,7 +319,7 @@ module ToneControl from Bridgeable:
     tone_r23.resistance = 4.7 kohm +/- 1%
     tone_r24 = new Resistor
     tone_r24.resistance = 100 kohm +/- 1%
-    rv_tone_pot = new Potentiometer
+    rv_tone_pot = new D6_Potentiometer_driver
     rv_tone_pot.r_total = 10 kohm +/- 10%
     tone_c14 = new Capacitor
     tone_c14.capacitance = 3.9 nF +/- 10%
@@ -344,7 +345,7 @@ module OutputStage from Bridgeable:
     out_c15.max_voltage = 50V
     out_r25 = new Resistor
     out_r25.resistance = 560 ohm +/- 1%
-    rv_level_pot = new Potentiometer
+    rv_level_pot = new D6_Potentiometer_driver
     rv_level_pot.r_total = 10 kohm +/- 10%
     out_r28 = new Resistor
     out_r28.resistance = 100 kohm +/- 1%

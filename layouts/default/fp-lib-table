@@ -259,4 +259,18 @@
         (options "")
         (descr "atopile: part lib: Samsung_Electro_Mechanics_CL31B475KBHNNNE")
     )
+    (lib
+        (name "Raspberry_Pi_RP2040")
+        (type "KiCad")
+        (uri "${KIPRJMOD}/../../parts/Raspberry_Pi_RP2040")
+        (options "")
+        (descr "atopile: part lib: Raspberry_Pi_RP2040")
+    )
+    (lib
+        (name "D6_Potentiometer")
+        (type "KiCad")
+        (uri "${KIPRJMOD}/../../parts/D6_Potentiometer")
+        (options "")
+        (descr "atopile: part lib: D6_Potentiometer")
+    )
 )

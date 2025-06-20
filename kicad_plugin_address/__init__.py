@@ -111,7 +111,7 @@ class AtopileAddressPlugin(pcbnew.ActionPlugin):
             
             # Set text height to 1mm (convert to KiCad internal units)
             # KiCad internal units are nanometers (1mm = 1000000nm)
-            text_size = int(1 * 1000000)  # 1mm in internal units
+            text_size = int(0.5 * 1000000)  # 1mm in internal units
             text.SetTextHeight(text_size)
             text.SetTextWidth(text_size)
             
