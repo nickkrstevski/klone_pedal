@@ -21,7 +21,11 @@ from "bridgeable.py" import Bridgeable
 # from "bridgeable_module.py" import BridgeableModule
 
 module Pedal:
-    # POWER DOMAINS
+    res = new Resistor
+    res.resistance = 10kohm +/- 5%
+    # interfaces
+    input = new ElectricSignal
+    output = new ElectricSignal
     signal gnd
     batt_power_9V = new ElectricPower
     batt_power_9V.voltage = 7.2V to 9.6V

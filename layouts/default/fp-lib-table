@@ -273,4 +273,11 @@
         (options "")
         (descr "atopile: part lib: D6_Potentiometer")
     )
+    (lib
+        (name "FH_1206B475K500NT")
+        (type "KiCad")
+        (uri "${KIPRJMOD}/../../parts/FH_1206B475K500NT")
+        (options "")
+        (descr "atopile: part lib: FH_1206B475K500NT")
+    )
 )
