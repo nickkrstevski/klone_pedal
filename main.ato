@@ -21,8 +21,6 @@ from "bridgeable.py" import Bridgeable
 # from "bridgeable_module.py" import BridgeableModule
 
 module Pedal:
-    res = new Resistor
-    res.resistance = 10kohm +/- 5%
     # interfaces
     input = new ElectricSignal
     output = new ElectricSignal
